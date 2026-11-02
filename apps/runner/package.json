@@ -1,0 +1,18 @@
+{
+  "name": "@agentopia/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "agentopia-runner": "./src/index.ts" },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentopia/core": "workspace:*",
+    "@agentopia/shared": "workspace:*",
+    "pino": "^10.1.0"
+  },
+  "devDependencies": { "tsx": "^4.20.6", "typescript": "^5.9.3" }
+}

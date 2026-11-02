@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "prisma"
+  - "esbuild"
+  - "@anthropic-ai/claude-agent-sdk"
+  - "@openai/codex"
+  - "sharp"
+  - "unrs-resolver"
+  - "msgpackr-extract"
+  - "bcrypt"

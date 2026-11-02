@@ -1,0 +1,23 @@
+# Optional infrastructure for Agentopia. The dev setup in this repo was verified
+# against a local Homebrew PostgreSQL 18 on :5432 and this Redis on :6380.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentopia
+      POSTGRES_PASSWORD: agentopia
+      POSTGRES_DB: agentopia
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - agentopia_pg:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - agentopia_redis:/data
+volumes:
+  agentopia_pg:
+  agentopia_redis:

@@ -1,0 +1,1014 @@
+// Agentopia data model. Multi-tenant-ready: every business row is scoped by
+// companyId (and companies by ownerId). Authorization is enforced server-side
+// in the API layer (see apps/web/src/server/authz.ts); this schema provides
+// the scoping columns and indexes.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Auth (better-auth managed tables)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  buildings     Building[]
+  companies     Company[]        @relation("CompanyOwner")
+  memberships   CompanyMembership[]
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Building -> Floors -> Company -> Rooms/Desks -> Employees
+// ---------------------------------------------------------------------------
+
+model Building {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  floors    Floor[]
+
+  @@index([ownerId])
+}
+
+model Floor {
+  id         String    @id @default(cuid())
+  buildingId String
+  building   Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int       @default(0)
+  // One floor hosts one company in the MVP; nullable so a floor can exist empty.
+  companyId  String?   @unique
+  company    Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  layout     Json      // FloorLayout projection: tile size, width/height, decor. Rooms/desks live in tables.
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  rooms      Room[]
+
+  @@index([buildingId, order])
+}
+
+enum CompanyRole {
+  OWNER
+  MEMBER
+}
+
+model Company {
+  id          String    @id @default(cuid())
+  ownerId     String
+  owner       User      @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  timezone    String    @default("Africa/Cairo")
+  isDemo      Boolean   @default(false)
+  settings    Json      @default("{}") // CompanySettings (concurrency, approvals, retention, privacy)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  floor              Floor?
+  memberships        CompanyMembership[]
+  rooms              Room[]
+  employees          Employee[]
+  skills             Skill[]
+  projects           Project[]
+  tasks              Task[]
+  taskEvents         TaskEvent[]
+  artifacts          Artifact[]
+  providerConnections ProviderConnection[]
+  runners            Runner[]
+  usageRecords       UsageRecord[]
+  learningSchedules  LearningSchedule[]
+  learningSources    LearningSource[]
+  learningRuns       LearningRun[]
+  sourceDocuments    SourceDocument[]
+  knowledgeEntries   KnowledgeEntry[]
+  approvalRequests   ApprovalRequest[]
+  auditLogs          AuditLog[]
+  executionSessions  ExecutionSession[]
+  providerLimits     ProviderLimitState[]
+
+  @@index([ownerId])
+}
+
+model CompanyMembership {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      CompanyRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+
+  @@unique([companyId, userId])
+  @@index([userId])
+}
+
+enum RoomKind {
+  MANAGER_OFFICE
+  DEVELOPMENT
+  DESIGN
+  RESEARCH
+  QA
+  SHARED
+  LOUNGE
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  floorId   String
+  floor     Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  kind      RoomKind
+  x         Int
+  y         Int
+  w         Int
+  h         Int
+  order     Int      @default(0)
+  desks     Desk[]
+
+  @@index([floorId])
+  @@index([companyId])
+}
+
+model Desk {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  x          Int
+  y          Int
+  facing     String    @default("down")
+  employeeId String?   @unique
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([roomId])
+}
+
+// ---------------------------------------------------------------------------
+// Employees, prompts, skills, careers
+// ---------------------------------------------------------------------------
+
+enum Specialty {
+  MANAGEMENT
+  FRONTEND
+  BACKEND
+  UIUX
+  QA
+  RESEARCH
+}
+
+enum EmployeeRole {
+  MANAGER
+  EMPLOYEE
+}
+
+enum Rank {
+  TRAINEE
+  JUNIOR
+  MID_LEVEL
+  SENIOR
+  EXPERT
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum VisualState {
+  IDLE
+  THINKING
+  WORKING
+  COLLABORATING
+  REVIEWING
+  WAITING_APPROVAL
+  BLOCKED
+  COMPLETED
+  OFFLINE
+}
+
+model Employee {
+  id                   String         @id @default(cuid())
+  companyId            String
+  company              Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                 String
+  avatar               Json           // { palette: string, hair: number, skin: number, accessory?: string }
+  title                String
+  department           String
+  specialty            Specialty
+  role                 EmployeeRole   @default(EMPLOYEE)
+  reportsToId          String?
+  reportsTo            Employee?      @relation("ReportsTo", fields: [reportsToId], references: [id], onDelete: SetNull)
+  reports              Employee[]     @relation("ReportsTo")
+  providerConnectionId String?
+  providerConnection   ProviderConnection? @relation(fields: [providerConnectionId], references: [id], onDelete: SetNull)
+  model                String?
+  rank                 Rank           @default(JUNIOR)
+  isTeamLead           Boolean        @default(false)
+  status               EmployeeStatus @default(ACTIVE)
+  visualState          VisualState    @default(IDLE) // non-authoritative projection
+  xp                   Int            @default(0)
+  specializationTopics String[]       @default([])
+  knowledgePermissions Json           @default("{}")
+  currentPromptVersion Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  desk                 Desk?
+  promptVersions       PromptVersion[]
+  skills               EmployeeSkill[]
+  careerEvidence       EmployeeCareerEvidence[]
+  assignments          Assignment[]
+  tasksAssigned        Task[]          @relation("TaskAssignee")
+  tasksCreated         Task[]          @relation("TaskCreatorEmployee")
+  taskEvents           TaskEvent[]
+  executionSessions    ExecutionSession[]
+  usageRecords         UsageRecord[]
+  learningSchedules    LearningSchedule[]
+  learningSources      LearningSource[]
+  learningRuns         LearningRun[]
+  knowledgeEntries     KnowledgeEntry[]
+
+  @@index([companyId, status])
+  @@index([companyId, specialty])
+}
+
+model PromptVersion {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  version     Int
+  fields      Json     // PromptFields (identity, scope, expertise, ...)
+  compiled    String   // rendered system prompt text
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, version])
+}
+
+model Skill {
+  id              String   @id @default(cuid())
+  companyId       String?  // null = global template skill
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  slug            String
+  name            String
+  description     String
+  instructions    String
+  applicableRoles Specialty[]
+  provenance      String   @default("owner") // owner | template | imported:<url>
+  version         Int      @default(1)
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  employees       EmployeeSkill[]
+
+  @@unique([companyId, slug])
+}
+
+enum Proficiency {
+  FAMILIAR
+  PROFICIENT
+  EXPERT
+}
+
+model EmployeeSkill {
+  employeeId  String
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  skillId     String
+  skill       Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proficiency Proficiency @default(PROFICIENT) // assigned, not demonstrated
+  enabled     Boolean     @default(true)
+  assignedAt  DateTime    @default(now())
+
+  @@id([employeeId, skillId])
+}
+
+enum EvidenceKind {
+  TASK_COMPLETED
+  REVIEW_APPROVED
+  REVIEW_REJECTED
+  TASK_FAILED
+  ASSESSMENT
+  KNOWLEDGE_VERIFIED
+  OWNER_OVERRIDE
+  RANK_CHANGE
+  INITIALIZED_AS
+}
+
+model EmployeeCareerEvidence {
+  id          String       @id @default(cuid())
+  employeeId  String
+  employee    Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind        EvidenceKind
+  summary     String
+  taskId      String?
+  score       Float?
+  fromRank    Rank?
+  toRank      Rank?
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  @@index([employeeId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Projects, tasks, orchestration
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  description   String        @default("")
+  status        ProjectStatus @default(ACTIVE)
+  workspacePath String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tasks         Task[]
+  knowledge     KnowledgeEntry[]
+
+  @@index([companyId])
+}
+
+enum TaskStatus {
+  BACKLOG
+  PLANNING
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_APPROVAL
+  WAITING_FOR_PROVIDER_LIMIT
+  REVIEW
+  COMPLETED
+  BLOCKED
+  FAILED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TaskKind {
+  USER_REQUEST
+  SUBTASK
+  REVIEW
+}
+
+model Task {
+  id                  String       @id @default(cuid())
+  companyId           String
+  company             Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId           String?
+  project             Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parentTaskId        String?
+  parent              Task?        @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children            Task[]       @relation("TaskChildren")
+  createdByUserId     String?
+  createdByEmployeeId String?
+  createdByEmployee   Employee?    @relation("TaskCreatorEmployee", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
+  assigneeId          String?
+  assignee            Employee?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  kind                TaskKind     @default(USER_REQUEST)
+  title               String
+  description         String
+  priority            TaskPriority @default(NORMAL)
+  status              TaskStatus   @default(BACKLOG)
+  requiredSpecialty   Specialty?
+  requiresApproval    Boolean      @default(false)
+  attempt             Int          @default(0)
+  maxAttempts         Int          @default(2)
+  limitRetries        Int          @default(0) // bounded re-queues after provider usage limits
+  maxCostUsd          Float?
+  timeoutSec          Int          @default(900)
+  isDemo              Boolean      @default(false)
+  resultSummary       String?
+  errorMessage        String?
+  plan                Json?        // manager's decomposition record
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  dependencies   TaskDependency[] @relation("DependsOn")
+  dependents     TaskDependency[] @relation("Dependents")
+  assignments    Assignment[]
+  events         TaskEvent[]
+  executions     ExecutionSession[]
+  artifacts      Artifact[]
+  approvals      ApprovalRequest[]
+  usageRecords   UsageRecord[]
+  knowledge      KnowledgeEntry[]
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([assigneeId, status])
+  @@index([parentTaskId])
+}
+
+model TaskDependency {
+  taskId      String
+  task        Task   @relation("DependsOn", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Task   @relation("Dependents", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, dependsOnId])
+  @@index([dependsOnId])
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  HANDED_OFF
+  RETURNED
+  CANCELLED
+}
+
+model Assignment {
+  id           String           @id @default(cuid())
+  taskId       String
+  task         Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedById String?          // employee id of manager (or null for owner)
+  reason       String           // skill-match explanation
+  handoff      Json             // HandoffRecord: inputs, deliverables, constraints, artifacts, reviewStatus
+  status       AssignmentStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  endedAt      DateTime?
+
+  @@index([taskId])
+  @@index([employeeId])
+}
+
+model TaskEvent {
+  seq        BigInt    @id @default(autoincrement())
+  id         String    @unique @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taskId     String?
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  type       String
+  payload    Json      @default("{}")
+  createdAt  DateTime  @default(now())
+
+  @@index([companyId, seq])
+  @@index([taskId, seq])
+}
+
+enum ExecutionMode {
+  API
+  LOCAL_RUNNER
+  SIMULATED
+}
+
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  WAITING_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+model ExecutionSession {
+  id                String          @id @default(cuid())
+  companyId         String
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taskId            String
+  task              Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attempt           Int
+  provider          String          // anthropic | openai | simulated
+  mode              ExecutionMode
+  model             String?
+  status            ExecutionStatus @default(QUEUED)
+  providerSessionId String?
+  runnerId          String?
+  runner            Runner?         @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  leaseExpiresAt    DateTime?
+  heartbeatAt       DateTime?
+  cancelRequested   Boolean         @default(false)
+  workspacePath     String?
+  usage             Json?           // provider-reported usage summary
+  costUsd           Float?
+  costSource        String?         // provider_reported | estimated | unavailable
+  error             String?
+  errorKind         String?         // ProviderErrorKind: USAGE_LIMIT | RATE_LIMIT | AUTH_EXPIRED | RUNNER_OFFLINE | UNSUPPORTED | OTHER
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime        @default(now())
+  artifacts         Artifact[]
+  approvals         ApprovalRequest[]
+  usageRecords      UsageRecord[]
+
+  @@index([taskId, attempt])
+  @@index([companyId, status])
+}
+
+enum ArtifactKind {
+  TEXT
+  FILE
+  DIFF
+  LINK
+  LOG
+}
+
+model Artifact {
+  id                 String            @id @default(cuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taskId             String
+  task               Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  executionSessionId String?
+  executionSession   ExecutionSession? @relation(fields: [executionSessionId], references: [id], onDelete: SetNull)
+  name               String
+  kind               ArtifactKind
+  mimeType           String            @default("text/plain")
+  content            String?           // small text artifacts inline
+  storagePath        String?           // larger files on disk under AGENTOPIA_ARTIFACT_ROOT
+  sizeBytes          Int               @default(0)
+  sha256             String?
+  createdAt          DateTime          @default(now())
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Providers, runners, usage
+// ---------------------------------------------------------------------------
+
+enum ProviderKind {
+  ANTHROPIC
+  OPENAI
+  SIMULATED
+}
+
+enum ConnectionStatus {
+  UNVERIFIED
+  VERIFIED
+  INVALID
+  REVOKED
+}
+
+/// How a connection authenticates. SUBSCRIPTION_CLI = the user's own, unmodified
+/// Claude Code / Codex CLI signed in on their machine (runs only through the local
+/// runner; usage draws from their plan). API_KEY = explicit, separately billed key.
+enum ProviderAuthMode {
+  SUBSCRIPTION_CLI
+  API_KEY
+}
+
+enum ProviderLimitKind {
+  OK
+  RATE_LIMITED
+  USAGE_LIMIT
+  AUTH_EXPIRED
+}
+
+/// Centralized Usage Limit Manager state, one row per company + provider.
+model ProviderLimitState {
+  id           String            @id @default(cuid())
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider     ProviderKind
+  kind         ProviderLimitKind @default(OK)
+  message      String?
+  /// Earliest time a retry is allowed (from Retry-After or backoff)
+  retryAfterAt DateTime?
+  /// Provider-reported reset time, when exposed (never invented)
+  resetAt      DateTime?
+  source       String?           // provider_reported | classified
+  lastErrorAt  DateTime?
+  /// Last provider-reported utilization (0..1) of the current window, e.g. Claude `rate_limit_event.rate_limit_info.utilization`; null when never reported
+  utilization  Float?
+  /// Provider-reported window label for `utilization`, e.g. "five_hour" / "seven_day"
+  windowLabel  String?
+  updatedAt    DateTime          @updatedAt
+  createdAt    DateTime          @default(now())
+
+  @@unique([companyId, provider])
+}
+
+model ProviderConnection {
+  id              String           @id @default(cuid())
+  companyId       String
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider        ProviderKind
+  mode            ExecutionMode
+  authMode        ProviderAuthMode @default(SUBSCRIPTION_CLI)
+  label           String
+  encryptedSecret String?          // AES-256-GCM, server-side only, never returned by the API
+  secretLast4     String?
+  status          ConnectionStatus @default(UNVERIFIED)
+  lastVerifiedAt  DateTime?
+  verifyError     String?
+  defaultModel    String?
+  settings        Json             @default("{}") // ProviderSettings
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  revokedAt       DateTime?
+  employees       Employee[]
+
+  @@index([companyId])
+}
+
+enum RunnerStatus {
+  ONLINE
+  OFFLINE
+  REVOKED
+}
+
+model Runner {
+  id           String       @id @default(cuid())
+  companyId    String
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  tokenHash    String       @unique
+  status       RunnerStatus @default(OFFLINE)
+  capabilities Json         @default("{}")
+  lastSeenAt   DateTime?
+  createdAt    DateTime     @default(now())
+  revokedAt    DateTime?
+  executions   ExecutionSession[]
+
+  @@index([companyId])
+}
+
+enum UsageSource {
+  PROVIDER_REPORTED
+  ESTIMATED
+}
+
+model UsageRecord {
+  id                 String            @id @default(cuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId         String?
+  employee           Employee?         @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  taskId             String?
+  task               Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  executionSessionId String?
+  executionSession   ExecutionSession? @relation(fields: [executionSessionId], references: [id], onDelete: SetNull)
+  learningRunId      String?
+  learningRun        LearningRun?      @relation(fields: [learningRunId], references: [id], onDelete: SetNull)
+  provider           String
+  model              String?
+  source             UsageSource
+  inputTokens        Int               @default(0)
+  outputTokens       Int               @default(0)
+  cacheReadTokens    Int               @default(0)
+  cacheWriteTokens   Int               @default(0)
+  costUsd            Float?
+  createdAt          DateTime          @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Learning engine and memory
+// ---------------------------------------------------------------------------
+
+enum TokenStrategy {
+  ZERO
+  LOW
+}
+
+model LearningSchedule {
+  id                        String        @id @default(cuid())
+  companyId                 String
+  company                   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId                String?       // null = company default
+  employee                  Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  enabled                   Boolean       @default(true)
+  days                      String[]      @default(["monday", "thursday"])
+  time                      String        @default("09:00")
+  timezone                  String        @default("Africa/Cairo")
+  maxDurationMinutes        Int           @default(10)
+  tokenStrategy             TokenStrategy @default(LOW)
+  sourceDocs                Boolean       @default(true)
+  sourceGithub              Boolean       @default(true)
+  specializationOnly        Boolean       @default(true)
+  approvalRequired          Boolean       @default(true)
+  skipUnchanged             Boolean       @default(true)
+  pauseOnBudgetExhaustion   Boolean       @default(true)
+  perRunTokenBudget         Int           @default(20000)
+  weeklyTokenBudget         Int           @default(60000)
+  weeklyCostBudgetUsd       Float         @default(0.5)
+  pausedAt                  DateTime?
+  pauseReason               String?
+  lastRunAt                 DateTime?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  runs                      LearningRun[]
+
+  @@unique([companyId, employeeId])
+}
+
+enum SourceKind {
+  DOCS
+  GITHUB
+}
+
+model LearningSource {
+  id            String     @id @default(cuid())
+  companyId     String
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId    String?    // null = shared company allowlist entry
+  employee      Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind          SourceKind
+  url           String
+  title         String
+  specialty     Specialty
+  topics        String[]   @default([])
+  enabled       Boolean    @default(true)
+  etag          String?
+  lastCommitSha String?
+  contentHash   String?
+  lastFetchedAt DateTime?
+  lastChangedAt DateTime?
+  createdAt     DateTime   @default(now())
+  documents     SourceDocument[]
+
+  @@unique([companyId, employeeId, url])
+  @@index([companyId, specialty])
+}
+
+enum LearningRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  TIMED_OUT
+  BUDGET_EXHAUSTED
+  FAILED
+  CANCELLED
+}
+
+model LearningRun {
+  id             String            @id @default(cuid())
+  companyId      String
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  scheduleId     String?
+  schedule       LearningSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  status         LearningRunStatus @default(QUEUED)
+  trigger        String            @default("scheduled") // scheduled | manual
+  tokenStrategy  TokenStrategy
+  startedAt      DateTime?
+  endedAt        DateTime?
+  durationMs     Int?
+  tokensUsed     Int               @default(0)
+  costUsd        Float             @default(0)
+  sourcesChecked Int               @default(0)
+  sourcesChanged Int               @default(0)
+  sourcesSkipped Int               @default(0)
+  entriesDrafted Int               @default(0)
+  error          String?
+  log            Json              @default("[]")
+  createdAt      DateTime          @default(now())
+  knowledge      KnowledgeEntry[]
+  usageRecords   UsageRecord[]
+
+  @@index([companyId, createdAt])
+  @@index([employeeId, createdAt])
+}
+
+model SourceDocument {
+  id          String         @id @default(cuid())
+  companyId   String
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceId    String
+  source      LearningSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  url         String
+  title       String
+  contentHash String
+  commitSha   String?
+  etag        String?
+  text        String         // bounded extracted text (not raw HTML)
+  sizeBytes   Int
+  license     String?
+  fetchedAt   DateTime       @default(now())
+  knowledge   KnowledgeEntry[]
+
+  @@unique([sourceId, contentHash])
+  @@index([companyId])
+}
+
+enum KnowledgeKind {
+  OWNER_INSTRUCTION
+  PROJECT_DOC
+  LEARNED_NOTE
+  TASK_LESSON
+}
+
+enum KnowledgeProvenance {
+  OWNER
+  LEARNING_LLM
+  LEARNING_DETERMINISTIC
+  TASK_POSTMORTEM
+  TASK_POSTMORTEM_DETERMINISTIC
+}
+
+enum KnowledgeStatus {
+  DRAFT
+  VERIFIED
+  REJECTED
+  EXPIRED
+  STALE
+  DELETED
+}
+
+model KnowledgeEntry {
+  id               String              @id @default(cuid())
+  companyId        String
+  company          Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId       String?
+  employee         Employee?           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId        String?
+  project          Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  taskId           String?
+  task             Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  learningRunId    String?
+  learningRun      LearningRun?        @relation(fields: [learningRunId], references: [id], onDelete: SetNull)
+  sourceDocumentId String?
+  sourceDocument   SourceDocument?     @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  kind             KnowledgeKind
+  provenance       KnowledgeProvenance
+  status           KnowledgeStatus     @default(DRAFT)
+  title            String
+  content          String
+  sourceUrl        String?
+  commitSha        String?
+  retrievedAt      DateTime?
+  confidence       Float               @default(0.5)
+  tags             String[]            @default([])
+  expiresAt        DateTime?
+  verifiedAt       DateTime?
+  verifiedById     String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  searchVector     Unsupported("tsvector")? // maintained by trigger knowledge_entry_search_vector_trg (see migration)
+  approvals        KnowledgeApproval[]
+
+  @@index([companyId, status])
+  @@index([employeeId, status])
+  @@index([searchVector], type: Gin)
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "KnowledgeEntry_title_trgm_idx")
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+model KnowledgeApproval {
+  id               String           @id @default(cuid())
+  knowledgeEntryId String
+  knowledgeEntry   KnowledgeEntry   @relation(fields: [knowledgeEntryId], references: [id], onDelete: Cascade)
+  decision         ApprovalDecision
+  decidedById      String
+  note             String?
+  createdAt        DateTime         @default(now())
+
+  @@index([knowledgeEntryId])
+}
+
+// ---------------------------------------------------------------------------
+// Approvals and audit
+// ---------------------------------------------------------------------------
+
+enum ApprovalKind {
+  TOOL_USE
+  COST
+  PUBLISH
+  CREDENTIAL
+  DESTRUCTIVE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+model ApprovalRequest {
+  id                 String            @id @default(cuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taskId             String?
+  task               Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  executionSessionId String?
+  executionSession   ExecutionSession? @relation(fields: [executionSessionId], references: [id], onDelete: Cascade)
+  kind               ApprovalKind
+  title              String
+  payload            Json              @default("{}")
+  status             ApprovalStatus    @default(PENDING)
+  requestedAt        DateTime          @default(now())
+  expiresAt          DateTime?
+  decidedAt          DateTime?
+  decidedById        String?
+  note               String?
+
+  @@index([companyId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String?
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json     @default("{}")
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}

@@ -1,0 +1,426 @@
+{
+  "version": 1,
+  "floorId": "demo_floor_1",
+  "companyId": "demo_co_northwind",
+  "loop": true,
+  "simulated": true,
+  "note": "Browser-local scripted playback. Task ids prefixed script_ are virtual and do not exist in the database; employee ids are fixed seed ids.",
+  "events": [
+    {
+      "type": "task.created",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_manager",
+      "payload": {
+        "title": "Add a responsive navigation bar",
+        "status": "BACKLOG",
+        "priority": "NORMAL",
+        "simulated": true
+      },
+      "delayMs": 800,
+      "simulated": true
+    },
+    {
+      "type": "task.planned",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_manager",
+      "payload": {
+        "status": "PLANNING",
+        "subtasks": [
+          {
+            "title": "Implement navbar component",
+            "specialty": "FRONTEND"
+          },
+          {
+            "title": "Review navbar",
+            "specialty": "QA"
+          }
+        ],
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "task.assigned",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "status": "ASSIGNED",
+        "assigneeId": "demo_nw_fe1",
+        "reason": "Frontend specialty, available, React component skill",
+        "simulated": true
+      },
+      "delayMs": 1200,
+      "simulated": true
+    },
+    {
+      "type": "employee.state",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "state": "THINKING",
+        "taskId": "script_task_1",
+        "simulated": true
+      },
+      "delayMs": 600,
+      "simulated": true
+    },
+    {
+      "type": "task.started",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "status": "IN_PROGRESS",
+        "from": "ASSIGNED",
+        "attempt": 1,
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "execution.started",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "mode": "SIMULATED",
+        "provider": "SIMULATED",
+        "simulated": true
+      },
+      "delayMs": 500,
+      "simulated": true
+    },
+    {
+      "type": "execution.tool_use",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "tool": "Read",
+        "input": "src/components/Navbar.tsx",
+        "simulated": true
+      },
+      "delayMs": 1800,
+      "simulated": true
+    },
+    {
+      "type": "execution.message",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "text": "The current header has no mobile layout; adding a disclosure menu with keyboard support.",
+        "simulated": true
+      },
+      "delayMs": 1600,
+      "simulated": true
+    },
+    {
+      "type": "execution.tool_use",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "tool": "Edit",
+        "input": "src/components/Navbar.tsx",
+        "simulated": true
+      },
+      "delayMs": 2200,
+      "simulated": true
+    },
+    {
+      "type": "execution.tool_use",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "tool": "Write",
+        "input": "src/components/Navbar.test.tsx",
+        "simulated": true
+      },
+      "delayMs": 2000,
+      "simulated": true
+    },
+    {
+      "type": "execution.usage",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "costSource": "unavailable",
+        "simulated": true
+      },
+      "delayMs": 400,
+      "simulated": true
+    },
+    {
+      "type": "execution.ended",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "status": "SUCCEEDED",
+        "artifacts": 2,
+        "simulated": true
+      },
+      "delayMs": 800,
+      "simulated": true
+    },
+    {
+      "type": "task.handoff",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "fromEmployeeId": "demo_nw_fe1",
+        "toEmployeeId": "demo_nw_qa",
+        "artifactIds": [
+          "script_artifact_1",
+          "script_artifact_2"
+        ],
+        "summary": "Navbar implemented with tests; please review keyboard and mobile behaviour.",
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "task.review_started",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_qa",
+      "payload": {
+        "status": "REVIEW",
+        "reviewerId": "demo_nw_qa",
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "execution.tool_use",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_qa",
+      "payload": {
+        "tool": "Bash",
+        "input": "pnpm vitest run Navbar",
+        "simulated": true
+      },
+      "delayMs": 2000,
+      "simulated": true
+    },
+    {
+      "type": "task.review_decided",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_qa",
+      "payload": {
+        "decision": "APPROVED",
+        "reviewerId": "demo_nw_qa",
+        "note": "Keyboard navigation and focus order verified.",
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "task.completed",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_1",
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "status": "COMPLETED",
+        "from": "REVIEW",
+        "message": "Navbar shipped and reviewed.",
+        "simulated": true
+      },
+      "delayMs": 1200,
+      "simulated": true
+    },
+    {
+      "type": "employee.state",
+      "companyId": "demo_co_northwind",
+      "taskId": null,
+      "employeeId": "demo_nw_fe1",
+      "payload": {
+        "state": "IDLE",
+        "taskId": null,
+        "simulated": true
+      },
+      "delayMs": 2500,
+      "simulated": true
+    },
+    {
+      "type": "employee.state",
+      "companyId": "demo_co_northwind",
+      "taskId": null,
+      "employeeId": "demo_nw_qa",
+      "payload": {
+        "state": "IDLE",
+        "taskId": null,
+        "simulated": true
+      },
+      "delayMs": 300,
+      "simulated": true
+    },
+    {
+      "type": "task.created",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_manager",
+      "payload": {
+        "title": "Add an audit log table migration",
+        "status": "BACKLOG",
+        "priority": "HIGH",
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "task.assigned",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "status": "ASSIGNED",
+        "assigneeId": "demo_nw_be",
+        "reason": "Backend specialty, migration-safety skill",
+        "simulated": true
+      },
+      "delayMs": 1200,
+      "simulated": true
+    },
+    {
+      "type": "task.started",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "status": "IN_PROGRESS",
+        "from": "ASSIGNED",
+        "attempt": 1,
+        "simulated": true
+      },
+      "delayMs": 1200,
+      "simulated": true
+    },
+    {
+      "type": "execution.tool_use",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "tool": "Bash",
+        "input": "pnpm prisma migrate dev --create-only",
+        "simulated": true
+      },
+      "delayMs": 1800,
+      "simulated": true
+    },
+    {
+      "type": "task.waiting_approval",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "status": "WAITING_APPROVAL",
+        "kind": "TOOL_USE",
+        "title": "Run a database migration command",
+        "simulated": true
+      },
+      "delayMs": 2000,
+      "simulated": true
+    },
+    {
+      "type": "task.approval_decided",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "decision": "DENIED",
+        "note": "Not on the shared database, please.",
+        "simulated": true
+      },
+      "delayMs": 2500,
+      "simulated": true
+    },
+    {
+      "type": "task.failed",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "status": "FAILED",
+        "from": "IN_PROGRESS",
+        "message": "Simulated failure: approval denied for the migration command.",
+        "attempt": 1,
+        "simulated": true
+      },
+      "delayMs": 1200,
+      "simulated": true
+    },
+    {
+      "type": "employee.state",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "state": "BLOCKED",
+        "taskId": "script_task_2",
+        "reason": "approval denied",
+        "simulated": true
+      },
+      "delayMs": 2000,
+      "simulated": true
+    },
+    {
+      "type": "task.retry_scheduled",
+      "companyId": "demo_co_northwind",
+      "taskId": "script_task_2",
+      "employeeId": "demo_nw_manager",
+      "payload": {
+        "attempt": 2,
+        "message": "Manager will re-plan with a create-only migration.",
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "employee.state",
+      "companyId": "demo_co_northwind",
+      "taskId": null,
+      "employeeId": "demo_nw_be",
+      "payload": {
+        "state": "IDLE",
+        "taskId": null,
+        "simulated": true
+      },
+      "delayMs": 1500,
+      "simulated": true
+    },
+    {
+      "type": "demo.note",
+      "companyId": "demo_co_northwind",
+      "taskId": null,
+      "employeeId": "demo_nw_manager",
+      "payload": {
+        "text": "This is a scripted simulation. No AI model was called.",
+        "simulated": true
+      },
+      "delayMs": 2000,
+      "simulated": true
+    }
+  ]
+}

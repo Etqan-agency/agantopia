@@ -1,0 +1,13 @@
+import { chromium } from "@playwright/test";
+const B = "http://localhost:3000"; const out = "/Users/khaledsakr/Documents/Agentopia/docs/screenshots";
+const browser = await chromium.launch(); const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+const r = await ctx.request.post(B + "/api/auth/sign-in/email", { data: { email: "live+1793601852@agentopia.test", password: "Passw0rd!Passw0rd" }, headers: { origin: B } });
+console.log("signin", r.status());
+const page = await ctx.newPage();
+await page.goto(B + "/integrations", { waitUntil: "networkidle" }); await page.waitForTimeout(2500);
+await page.screenshot({ path: out + "/16-integrations-subscription-ready.png" });
+await page.goto(B + "/tasks/cmvyw94qk01xwkrvdfytw0tec", { waitUntil: "networkidle" }); await page.waitForTimeout(2000);
+await page.screenshot({ path: out + "/17-task-claude-subscription-run.png" });
+await page.goto(B + "/office", { waitUntil: "networkidle" }); await page.waitForTimeout(3000);
+await page.screenshot({ path: out + "/18-office-after-live-runs.png" });
+await browser.close(); console.log("done");
